@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Widget - Интерактивный помощник</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        // Настройка URL API для локальной разработки
+        window.WIDGET_API_URL = 'http://localhost:3000';
+        window.WIDGET_WS_URL = 'http://localhost:3000';
+    </script>
+</head>
+<body>
+<div class="video-widget" data-state="default">
+    <div class="video-widget__container">
+            <!-- Видео превью -->
+            <div class="video-widget__preview">
+        <video id="video-widget__video" loop autoplay playsinline preload="auto" muted controlslist="nodownload" disablepictureinpicture class="video-widget__video">
+            <source src="/demo.mp4" type="video/mp4">
+        </video>
+                <div class="video-widget__overlay">
+                    <div class="video-widget__sphere-container">
+                        <img src="sphere.svg" alt="Sphere" class="video-widget__sphere">
+                    </div>
+        </div>
+            </div>
+            
+            <!-- Кнопка закрытия -->
+            <button class="video-widget__close" aria-label="Закрыть виджет"></button>
+            
+            <!-- Главное меню с кнопками -->
+            <div class="video-widget__buttons">
+                <button class="video-widget__btn video-widget__voice-btn" type="button" title="Голосовое сообщение">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
+                    <span class="btn-text">Голос</span>
+                </button>
+                <button class="video-widget__btn video-widget__text-btn" type="button" title="Текстовое сообщение">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span class="btn-text">Текст</span>
+                </button>
+                <button class="video-widget__btn video-widget__manager-btn" type="button" title="Прямая связь с менеджером">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span class="btn-text">Менеджер</span>
+                </button>
+            </div>
+            
+            <!-- Модальное окно выбора типа связи с менеджером -->
+            <div class="manager-connection-modal" style="display: none;">
+                <div class="modal-overlay"></div>
+                <div class="modal-content">
+                    <button class="modal-close-btn" type="button" aria-label="Закрыть">×</button>
+                    <div class="modal-title">Выберите способ связи</div>
+                    <div class="connection-options">
+                        <button class="connection-option" data-type="text" type="button">
+                            <div class="option-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                </svg>
+                            </div>
+                            <div class="option-info">
+                                <div class="option-title">Текстом</div>
+                                <div class="option-desc">Чат с менеджером</div>
+                            </div>
+                        </button>
+                        <button class="connection-option" data-type="audio" type="button">
+                            <div class="option-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                    <line x1="8" y1="23" x2="16" y2="23"/>
+                                </svg>
+                            </div>
+                            <div class="option-info">
+                                <div class="option-title">Голосом</div>
+                                <div class="option-desc">Аудиозвонок</div>
+                            </div>
+                        </button>
+                        <button class="connection-option" data-type="video" type="button">
+                            <div class="option-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="23 7 16 12 23 17 23 7"/>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                </svg>
+                            </div>
+                            <div class="option-info">
+                                <div class="option-title">Видео</div>
+                                <div class="option-desc">Видеозвонок</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- FAQ сообщения -->
+            <div class="video-widget__faq-messages">
+                <div class="faq-header">
+                    <button class="faq-back-btn" aria-label="Назад">←</button>
+                    <div class="faq-title">Популярные вопросы</div>
+        </div>
+                <div class="faq-list">
+                    <div class="faq-message" data-question="Как Big Data помогает увеличить продажи?">
+                        <span class="faq-icon">💡</span>
+                        <span class="faq-text">Как Big Data помогает увеличить продажи?</span>
+        </div>
+                    <div class="faq-message" data-question="Какие данные вы собираете?">
+                        <span class="faq-icon">🔒</span>
+                        <span class="faq-text">Какие данные вы собираете?</span>
+        </div>
+                    <div class="faq-message" data-question="Сколько стоит внедрение?">
+                        <span class="faq-icon">💰</span>
+                        <span class="faq-text">Сколько стоит внедрение?</span>
+        </div>
+    </div>
+</div>
+
+            <!-- Голосовой рекордер -->
+            <div class="video-widget__voice-recorder">
+                <div class="recorder-header">
+                    <button class="recorder-back-btn" aria-label="Назад">←</button>
+                    <div class="recorder-title">Запись голоса</div>
+                </div>
+                <div class="recorder-content">
+                    <div class="recorder-visualizer">
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                        <div class="visualizer-bar"></div>
+                    </div>
+                    <div class="recorder-status">
+                        <div class="recorder-timer">00:00</div>
+                        <div class="recorder-hint">Говорите, я слушаю...</div>
+                    </div>
+                    <button class="recorder-send-btn" type="button" aria-label="Отправить голосовое сообщение" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                        </svg>
+                        <span class="send-btn-label">Отправить</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Текстовый ввод -->
+            <div class="video-widget__text-input">
+                <div class="text-input-header">
+                    <button class="text-input-back-btn" aria-label="Назад">←</button>
+                    <div class="text-input-title">Ваш вопрос</div>
+                </div>
+                <div class="text-input-content">
+                    <textarea 
+                        class="question-input" 
+                        placeholder="Опишите ваш вопрос подробнее..."
+                        rows="4"
+                        maxlength="500"></textarea>
+                    <div class="text-input-footer">
+                        <span class="char-counter"><span class="char-count">0</span>/500</span>
+                        <button class="send-question-btn" type="button" disabled>
+                            <span>Отправить</span>
+                            <span class="send-icon">→</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Чат контейнер -->
+            <div class="video-widget__chat-container">
+                <div class="chat-drag-handle" title="Потяните вниз, чтобы свернуть"></div>
+                <div class="chat-header">
+                    <div class="chat-avatar">
+                        <div class="avatar-pulse"></div>
+                    </div>
+                    <div class="chat-info">
+                        <div class="chat-title">Ассистент по данным</div>
+                        <div class="chat-status">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Онлайн</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-welcome">
+                        <div class="welcome-icon">👋</div>
+                        <div class="welcome-text">Привет! Я готов ответить на ваши вопросы</div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <div class="typing-indicator" style="display: none;">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <textarea 
+                        class="chat-input" 
+                        placeholder="Напишите сообщение..."
+                        rows="1"
+                        maxlength="1000"></textarea>
+                    <button class="chat-send-btn" type="button" aria-label="Отправить сообщение" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

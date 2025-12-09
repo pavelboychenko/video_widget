@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель менеджеров</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Экран авторизации -->
+        <div class="login-screen" id="login-screen">
+            <div class="login-box">
+                <h1>Вход для менеджеров</h1>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Войти</button>
+                    <div class="error-message" id="login-error"></div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Основной интерфейс -->
+        <div class="main-screen" id="main-screen" style="display: none;">
+            <!-- Шапка -->
+            <header class="admin-header">
+                <div class="header-left">
+                    <h1>Панель менеджера</h1>
+                    <div class="manager-info">
+                        <span id="manager-name">Менеджер</span>
+                        <span class="status-badge online" id="status-badge">Онлайн</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button class="btn-secondary" id="logout-btn">Выйти</button>
+                </div>
+            </header>
+
+            <div class="admin-content">
+                <!-- Боковая панель с очередью -->
+                <aside class="queue-sidebar">
+                    <h2>Очередь запросов</h2>
+                    <div class="queue-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Ожидают:</span>
+                            <span class="stat-value" id="waiting-count">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Онлайн менеджеров:</span>
+                            <span class="stat-value" id="managers-count">0</span>
+                        </div>
+                    </div>
+                    <div class="queue-list" id="queue-list">
+                        <div class="empty-queue">Нет ожидающих запросов</div>
+                    </div>
+                </aside>
+
+                <!-- Основная область чата -->
+                <main class="chat-area">
+                    <div class="no-session" id="no-session">
+                        <div class="no-session-icon">💬</div>
+                        <div class="no-session-text">Выберите сессию из очереди для начала общения</div>
+                    </div>
+
+                    <div class="active-session" id="active-session" style="display: none;">
+                        <!-- Заголовок сессии -->
+                        <div class="session-header">
+                            <div class="session-info">
+                                <div class="session-user">Пользователь: <span id="session-user-id"></span></div>
+                                <div class="session-site">Сайт: <span id="session-site"></span></div>
+                            </div>
+                            <div class="session-actions">
+                                <button class="btn-icon" id="audio-call-btn" title="Аудиозвонок">📞</button>
+                                <button class="btn-icon" id="video-call-btn" title="Видеозвонок">📹</button>
+                                <button class="btn-icon" id="end-session-btn" title="Завершить сессию">✕</button>
+                            </div>
+                        </div>
+
+                        <!-- Сообщения -->
+                        <div class="session-messages" id="session-messages"></div>
+
+                        <!-- Ввод сообщения -->
+                        <div class="session-input-area">
+                            <textarea 
+                                id="session-input" 
+                                placeholder="Введите сообщение..."
+                                rows="1"></textarea>
+                            <button class="btn-send" id="session-send-btn">Отправить</button>
+                        </div>
+                    </div>
+                </main>
+
+            <!-- Панель настроек и генерации кода -->
+            <section class="settings-panel">
+                <h2>Настройки виджета и код вставки</h2>
+                <div class="settings-grid">
+                    <div class="settings-group">
+                        <label for="cfg-widget-origin">Widget Origin (статические файлы)</label>
+                        <input id="cfg-widget-origin" type="text" placeholder="https://your-domain.com" />
+                        <small>Где лежат styles.css, script.js, demo.mp4, sphere.svg</small>
+                    </div>
+                    <div class="settings-group">
+                        <label for="cfg-api-url">API URL</label>
+                        <input id="cfg-api-url" type="text" placeholder="https://api.your-domain.com" />
+                        <small>Бэкенд: /chat, /voice/save, /site/init</small>
+                    </div>
+                    <div class="settings-group">
+                        <label for="cfg-ws-url">WebSocket URL</label>
+                        <input id="cfg-ws-url" type="text" placeholder="wss://api.your-domain.com" />
+                        <small>WS namespaces: /chat и /call</small>
+                    </div>
+                    <div class="settings-group">
+                        <label for="cfg-video-url">Видео превью (mp4)</label>
+                        <input id="cfg-video-url" type="text" placeholder="https://your-domain.com/demo.mp4" />
+                        <small>Если пусто — возьмётся по умолчанию /demo.mp4</small>
+                    </div>
+                </div>
+
+                <div class="embed-actions">
+                    <button class="btn-secondary" id="generate-embed-btn">Сгенерировать код</button>
+                    <button class="btn-primary" id="copy-embed-btn">Скопировать код</button>
+                </div>
+
+                <div class="embed-preview">
+                    <pre id="embed-code" class="code-block"></pre>
+                </div>
+            </section>
+            </div>
+        </div>
+
+        <!-- Модальное окно видеозвонка (аналогично виджету) -->
+        <div class="video-call-modal" id="video-call-modal" style="display: none;">
+            <div class="video-call-container">
+                <div class="video-call-header">
+                    <div class="call-status" id="call-status">Звонок...</div>
+                    <button class="call-close-btn" id="call-close-btn">×</button>
+                </div>
+                <div class="video-call-content">
+                    <div class="remote-video-container">
+                        <video id="remote-video" autoplay playsinline></video>
+                        <div class="video-placeholder">Ожидание подключения...</div>
+                    </div>
+                    <div class="local-video-container">
+                        <video id="local-video" autoplay playsinline muted></video>
+                        <button class="video-toggle-btn" data-type="video" title="Включить/выключить камеру">📹</button>
+                        <button class="video-toggle-btn" data-type="audio" title="Включить/выключить микрофон">🎤</button>
+                    </div>
+                </div>
+                <div class="video-call-controls">
+                    <button class="call-end-btn" id="call-end-btn">Завершить звонок</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="admin.js"></script>
+</body>
+</html>
+
