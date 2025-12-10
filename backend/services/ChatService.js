@@ -18,6 +18,12 @@ export class ChatService {
         const openaiConfig = {
             apiKey: config.openai.apiKey,
         };
+        
+        // Логирование ключа для отладки (первые и последние символы)
+        const keyPreview = config.openai.apiKey.length > 20
+            ? `${config.openai.apiKey.substring(0, 10)}...${config.openai.apiKey.substring(config.openai.apiKey.length - 10)}`
+            : '***';
+        console.log('🔑 Using OpenAI API Key:', keyPreview);
 
         // Если прокси настроен, используем его
         if (config.proxy?.openai) {

@@ -11,6 +11,15 @@ dotenv.config({ path: join(__dirname, '.env') });
 const DEFAULT_OPENAI_KEY = process.env.OPENAI_API_KEY || '';
 const DEFAULT_PORT = 3001;
 
+// Логирование для отладки (первые и последние символы ключа)
+if (process.env.OPENAI_API_KEY) {
+    const key = process.env.OPENAI_API_KEY;
+    const preview = key.length > 20 
+        ? `${key.substring(0, 10)}...${key.substring(key.length - 10)}` 
+        : '***';
+    console.log('🔑 OpenAI API Key loaded:', preview);
+}
+
 export const config = {
     // OpenAI
     openai: {
