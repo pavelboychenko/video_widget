@@ -29,9 +29,21 @@ export class ChatService {
         if (config.proxy?.openai) {
             try {
                 const proxyUrl = config.proxy.openai;
-                const agent = new HttpsProxyAgent(proxyUrl);
+                const agent = new HttpsProxyAgent(proxyUrl, {
+                    // Дополнительные опции для лучшей работы прокси
+                    keepAlive: true,
+                    keepAliveMsecs: 1000,
+                    maxSockets: 256,
+                    maxFreeSockets: 256,
+                    timeout: 60000,
+                    // Убеждаемся, что прокси используется для всех запросов
+                    rejectUnauthorized: false // Для тестирования, можно включить проверку сертификатов
+                });
                 openaiConfig.httpAgent = agent;
                 openaiConfig.httpsAgent = agent;
+                // Также устанавливаем переменные окружения для подстраховки
+                process.env.HTTPS_PROXY = proxyUrl;
+                process.env.HTTP_PROXY = proxyUrl;
                 console.log('✅ OpenAI proxy configured:', proxyUrl.replace(/:[^:@]+@/, ':****@'));
             } catch (error) {
                 console.error('❌ Error setting up OpenAI proxy:', error.message);

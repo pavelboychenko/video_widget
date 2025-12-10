@@ -5,9 +5,37 @@ import { config } from '../config.js';
 import { ChatService } from '../services/ChatService.js';
 import { createReadStream, unlinkSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const router = express.Router();
-const openai = new OpenAI({ apiKey: config.openai.apiKey });
+
+// Настройка OpenAI с прокси (если настроен)
+const openaiConfig = {
+    apiKey: config.openai.apiKey,
+};
+
+if (config.proxy?.openai) {
+    try {
+        const proxyUrl = config.proxy.openai;
+        const agent = new HttpsProxyAgent(proxyUrl, {
+            keepAlive: true,
+            keepAliveMsecs: 1000,
+            maxSockets: 256,
+            maxFreeSockets: 256,
+            timeout: 60000,
+            rejectUnauthorized: false
+        });
+        openaiConfig.httpAgent = agent;
+        openaiConfig.httpsAgent = agent;
+        process.env.HTTPS_PROXY = proxyUrl;
+        process.env.HTTP_PROXY = proxyUrl;
+        console.log('✅ OpenAI proxy configured for Whisper:', proxyUrl.replace(/:[^:@]+@/, ':****@'));
+    } catch (error) {
+        console.error('❌ Error setting up OpenAI proxy for Whisper:', error.message);
+    }
+}
+
+const openai = new OpenAI(openaiConfig);
 
 // Настройка multer для загрузки аудио файлов
 const upload = multer({
