@@ -83,11 +83,15 @@
 
 /* ===== Виджет контейнер ===== */
 .video-widget {
-    position: fixed;
-    left: 20px;
-    bottom: 6%;
-    z-index: 999999;
+    position: fixed !important;
+    left: 20px !important;
+    bottom: 6% !important;
+    z-index: 999999 !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    pointer-events: auto !important;
+    /* Убеждаемся, что виджет не зависит от родительских контейнеров */
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .video-widget__container {
@@ -1110,8 +1114,8 @@
 /* ===== Адаптивность ===== */
 @media only screen and (max-width: 479px) {
     .video-widget {
-        left: 15px;
-        bottom: 15px;
+        left: 15px !important;
+        bottom: 15px !important;
     }
     
     .video-widget__container {

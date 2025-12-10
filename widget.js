@@ -37,6 +37,9 @@
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = href;
+        link.onerror = function() {
+            console.warn('Failed to load widget CSS:', href);
+        };
         document.head.appendChild(link);
     }
     
@@ -318,7 +321,19 @@
             return;
         }
         
+        // Вставляем виджет в body и убеждаемся, что он фиксирован
         document.body.insertAdjacentHTML('beforeend', widgetHTML);
+        
+        // Принудительно применяем стили для фиксации виджета
+        const widget = document.querySelector('.video-widget');
+        if (widget) {
+            widget.style.position = 'fixed';
+            widget.style.left = '20px';
+            widget.style.bottom = '6%';
+            widget.style.zIndex = '999999';
+            widget.style.pointerEvents = 'auto';
+            console.log('✅ Widget positioned and fixed on screen');
+        }
         
         // Загружаем основной скрипт виджета только один раз
         if (window.AIWidgetScriptLoaded) {
