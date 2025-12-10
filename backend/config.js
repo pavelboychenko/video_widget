@@ -7,10 +7,14 @@ const __dirname = dirname(__filename);
 
 dotenv.config({ path: join(__dirname, '.env') });
 
+// Fallbacks (avoid empty API key / port conflicts)
+const DEFAULT_OPENAI_KEY = process.env.OPENAI_API_KEY || '';
+const DEFAULT_PORT = 3001;
+
 export const config = {
     // OpenAI
     openai: {
-        apiKey: process.env.OPENAI_API_KEY || '',
+        apiKey: process.env.OPENAI_API_KEY || DEFAULT_OPENAI_KEY,
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         maxTokens: 1000,
         temperature: 0.7,
@@ -18,7 +22,7 @@ export const config = {
     
     // Server
     server: {
-        port: parseInt(process.env.PORT || '3000', 10),
+        port: parseInt(process.env.PORT || `${DEFAULT_PORT}`, 10),
         nodeEnv: process.env.NODE_ENV || 'development',
     },
     
@@ -42,11 +46,25 @@ export const config = {
         maxHistoryMessages: parseInt(process.env.MAX_HISTORY_MESSAGES || '10', 10),
         priorityTypes: ['pricing', 'services', 'faq'], // Priority page types
     },
+
+    // Proxy (например, для OpenAI)
+    proxy: {
+        openai: process.env.OPENAI_PROXY || '',
+    },
+
+    // Telegram
+    telegram: {
+        botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+        chatId: process.env.TELEGRAM_CHAT_ID || '',
+        webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+        proxy: process.env.TELEGRAM_PROXY || '',
+    },
     
     // Indexing
     indexing: {
         enabled: process.env.INDEXING_ENABLED !== 'false',
-        autoIndexOnFirstRequest: process.env.AUTO_INDEX_ON_FIRST_REQUEST !== 'false',
+        // По умолчанию автоиндексацию отключаем (особенно для локального стенда)
+        autoIndexOnFirstRequest: process.env.AUTO_INDEX_ON_FIRST_REQUEST === 'true',
     },
 };
 

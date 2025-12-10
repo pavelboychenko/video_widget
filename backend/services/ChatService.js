@@ -12,16 +12,132 @@ export class ChatService {
         if (!config.openai.apiKey) {
             throw new Error('OpenAI API key is not configured');
         }
-        
+
+        // Прокси для OpenAI (если задан)
+        if (config.proxy?.openai) {
+            process.env.HTTPS_PROXY = config.proxy.openai;
+            process.env.HTTP_PROXY = config.proxy.openai;
+        }
+
         this.openai = new OpenAI({
             apiKey: config.openai.apiKey,
         });
     }
 
     /**
+     * Демо-домен для стенда
+     */
+    isMarketoloDemoDomain(siteDomain) {
+        if (!siteDomain) return false;
+        const normalized = siteDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+        return normalized === 'marketolo.ru' || normalized.endsWith('.marketolo.ru');
+    }
+
+    /**
+     * Жестко заданный контент для демо-домена marketolo.ru
+     * Чтобы ассистент отвечал без индексации сайта.
+     */
+    getMarketoloContext() {
+        return `[О ПРОДУКТЕ]
+Marketolo — закрытый инструмент для бизнеса: частный доступ к 350 000+ состоятельным (HNW/UHNW) клиентам России, все точки контакта.
+
+[КЛЮЧЕВАЯ ЦЕННОСТЬ]
+- Частный доступ к богатейшей аудитории: доходы, статус, интересы, география, сегментация, контакты до e-mail/телефон.
+- Точные «касания» с премиальной аудиторией: продаём контакт с конкретным человеком, а не трафик.
+- Абсолютная точность, без «шума»: реальные люди с подтверждённым достатком, прямой доступ, гарантированная релевантность.
+- Решаем главную проблему: у премиум-бизнеса есть продукт, но нет прямого канала. Marketolo — системное решение.
+
+[ДЛЯ КОГО]
+- Девелоперы (элитная и зарубежная недвижимость, резиденции, апартаменты)
+- Инвестиционные компании (фонды, брокеры, закрытые пулы, частные предложения)
+- Private banking / финансы (управление капиталом, траст, family office)
+- Бизнесы премиум-класса (медицина, образование, авто, luxury-товары, клубы)
+
+[ЧТО ПОЛУЧАЕТ КЛИЕНТ]
+- Прямой доступ к 350 000+ состоятельным клиентам России
+- Сегментацию по интересам, географии, активам и поведению
+- Настроенные кампании и касания по нужной аудитории
+- Performance-модель: оплата за реальное действие
+- Прозрачная аналитика касаний
+- Возможность запускать инвестиционные/девелоперские проекты через премиальный трафик
+
+[КАК РАБОТАЕТ]
+1) Клиент выбирает аудиторию или продукт (недвижимость, инвестиции и т.д.).
+2) Marketolo формирует сегмент из 350 000+ премиальных контактов.
+3) Настраиваются касания: e-mail, мессенджеры, показы, баннеры, лид-формы.
+4) Клиент получает обращения, лиды и сделки от целевой аудитории.
+5) Marketolo отслеживает качество трафика и оптимизирует показы.
+
+[МОДЕЛИ]
+- CPC: 95 ₽ за клик — доступ к премиальной аудитории, оплата только за реальные переходы.
+- Под ключ: 350 000 ₽/мес — полный цикл привлечения + касания + аналитика.
+- Пулы: сегментированные аудитории (недвижимость, инвестиции, крипто, финансы) — непересекаются.
+
+[ОТЛИЧИЯ]
+- Не look-alike, а реальные люди.
+- Не холодный трафик, а люди с высоким состоянием.
+- Не абстрактный интерес, а точная сегментация.
+- Единственный частный доступ такого масштаба в России.
+- Точечная коммуникация без лишних расходов.
+
+[ОГРАНИЧЕНИЯ]
+- Marketolo не продаёт персональные данные и не передаёт базу клиенту.
+- Доступ к аудитории идёт через касания Marketolo.
+- Результаты зависят от качества продукта клиента и его оффера.
+
+[КРАТКИЕ ФОРМУЛИРОВКИ ДЛЯ ОТВЕТОВ]
+— «Частный доступ к 350 000+ состоятельным клиентам России»
+— «Сегментация по интересам, географии, активам и поведению»
+— «Performance-модель: оплата за действие; CPC 95 ₽»
+— «Пакет под ключ — 350 000 ₽/мес: полный цикл + касания + аналитика»
+— «Доступ к пулу премиальных аудиторий без передачи базы»`;
+    }
+
+    /**
+     * Усиленный системный промпт для демо-домена, чтобы не отвечать «нет информации»
+     */
+    buildMarketoloSystemPrompt(context) {
+        return `Ты — ассистент компании Marketolo (marketolo.ru).
+Твоя задача: уверенно и кратко отвечать на вопросы только фактами из блока контекста ниже.
+
+Главные правила:
+- Не говори, что информации нет. Всегда отвечай по сути, опираясь на факты из контекста.
+- Если вопрос общий (напр. «как увеличить продажи», «Big Data?»), отвечай через призму Marketolo: частный доступ к 350k+ HNW/UHNW и точные касания.
+- Пиши по-русски, дружелюбно и по делу, 2–5 коротких предложений.
+- Не обещай передачу базы или персональных данных; доступ только через касания Marketolo.
+
+КОНТЕКСТ:
+${context}`;
+    }
+
+    /**
+     * Ответ по умолчанию, если OpenAI недоступен в демо-домене
+     */
+    buildMarketoloFallbackAnswer(userMessage) {
+        return `Мы — Marketolo. Коротко о нас:
+- частный доступ к 350 000+ состоятельных клиентов России (HNW/UHNW);
+- точные касания: e-mail, мессенджеры, показы, баннеры, лид-формы;
+- модели: CPC 95 ₽/клик, «под ключ» 350 000 ₽/мес, сегментированные пулы (недвижимость, инвестиции, финансы, крипто);
+- отличия: не look-alike, а реальные люди, без передачи базы, доступ только через касания.
+
+Задайте вопрос подробнее — подберём релевантный сегмент и формат касания.`;
+    }
+
+    /**
      * Проверяет и инициирует индексацию сайта при необходимости
      */
     async ensureSiteIndexed(siteDomain) {
+        // Пропускаем автоиндексацию для локальных доменов/IP
+        const norm = (siteDomain || '').toLowerCase();
+        const isLocal =
+            norm === 'localhost' ||
+            norm === '127.0.0.1' ||
+            norm === '0.0.0.0' ||
+            /^\d+\.\d+\.\d+\.\d+$/.test(norm);
+        if (isLocal) {
+            return { indexing: false, status: 'skipped_local' };
+        }
+
         const knowledgeBase = new SiteKnowledgeBase(siteDomain);
         
         // Проверяем статус индексации
@@ -102,17 +218,28 @@ ${context || 'Информация о компании пока индексир
      * Отправляет сообщение в OpenAI и получает ответ
      */
     async getChatResponse(siteDomain, userMessage, history = []) {
-        // Проверяем/инициируем индексацию
-        await this.ensureSiteIndexed(siteDomain);
+        const isMarketoloDemo = this.isMarketoloDemoDomain(siteDomain);
 
-        // Получаем контекст из базы знаний
-        const knowledgeBase = new SiteKnowledgeBase(siteDomain);
-        const context = knowledgeBase.hasIndexedPages() 
-            ? knowledgeBase.buildContext(userMessage)
-            : null;
+        let context = null;
+        let systemPrompt = null;
 
-        // Формируем системный промпт
-        const systemPrompt = this.buildSystemPrompt(siteDomain, context);
+        if (isMarketoloDemo) {
+            // Для демо не инициируем краулер, используем фиксированный контент
+            context = this.getMarketoloContext();
+            systemPrompt = this.buildMarketoloSystemPrompt(context);
+        } else {
+            // Проверяем/инициируем индексацию
+            await this.ensureSiteIndexed(siteDomain);
+
+            // Получаем контекст из базы знаний
+            const knowledgeBase = new SiteKnowledgeBase(siteDomain);
+            context = knowledgeBase.hasIndexedPages() 
+                ? knowledgeBase.buildContext(userMessage)
+                : null;
+
+            // Формируем системный промпт
+            systemPrompt = this.buildSystemPrompt(siteDomain, context);
+        }
 
         // Ограничиваем историю
         const limitedHistory = this.limitHistory(history);
@@ -150,6 +277,20 @@ ${context || 'Информация о компании пока индексир
         } catch (error) {
             console.error('OpenAI API error:', error);
             
+            // Для демо-домена даем предсказуемый ответ, если ключ/сеть недоступны
+            if (isMarketoloDemo) {
+                return {
+                    answer: this.buildMarketoloFallbackAnswer(userMessage),
+                    meta: {
+                        usedSiteDomain: siteDomain,
+                        hasContext: true,
+                        tokens: null,
+                        fallback: true,
+                        error: error.message,
+                    },
+                };
+            }
+
             // Обработка различных типов ошибок
             if (error.status === 429) {
                 throw new Error('Превышен лимит запросов к OpenAI. Попробуйте позже.');

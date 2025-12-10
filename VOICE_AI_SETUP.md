@@ -1,82 +1,133 @@
-# 🎤 Голосовое общение с ИИ - Настроено!
+#!/bin/bash
+set -e
 
-## ✅ Что реализовано
+echo "======================================"
+echo "🚀 VIDEO WIDGET — FULL SERVER INSTALLER"
+echo "======================================"
 
-1. **Распознавание речи через OpenAI Whisper API**
-   - Автоматическое распознавание русской речи
-   - Высокая точность распознавания
+###############################################
+### 1. UPDATE SYSTEM
+###############################################
+apt update -y
+apt upgrade -y
+apt install -y git curl unzip nginx certbot python3-certbot-nginx build-essential
 
-2. **Интеграция с ИИ ассистентом**
-   - Распознанный текст автоматически отправляется в ИИ
-   - ИИ отвечает на голосовой вопрос
+###############################################
+### 2. INSTALL NODEJS (NVM — NO GPG PROBLEMS)
+###############################################
+echo "➡ Installing NodeJS via NVM (clean & safe)"
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
-3. **Улучшенный UX**
-   - Показ распознанного текста в чате
-   - Индикатор обработки
-   - Плавные переходы
+export NVM_DIR="$HOME/.nvm"
+source "$NVM_DIR/nvm.sh"
 
-## 🚀 Как это работает
+nvm install 22
+nvm use 22
 
-1. Пользователь нажимает кнопку **"Голос"**
-2. Записывает голосовое сообщение
-3. Аудио отправляется на сервер (`/voice/save`)
-4. Сервер распознает речь через OpenAI Whisper
-5. Распознанный текст отправляется в ИИ через `/chat`
-6. Ответ ИИ показывается в чате
+echo "Node version: $(node -v)"
+echo "NPM version:  $(npm -v)"
 
-## 📋 Технические детали
+###############################################
+### 3. CLONE REPOSITORY
+###############################################
+cd /opt
+rm -rf video_widget
+git clone https://github.com/pavelboychenko/video_widget.git
+cd video_widget/backend
 
-### Backend (`/voice/save`)
-- Использует `multer` для загрузки аудио файлов
-- OpenAI Whisper API для распознавания речи
-- Автоматическая интеграция с ChatService
-- Временные файлы автоматически удаляются
+###############################################
+### 4. CREATE .ENV
+###############################################
+echo "➡ Creating backend .env"
 
-### Frontend
-- Отправка аудио в формате WebM
-- Показ индикатора обработки
-- Отображение распознанного текста
-- Показ ответа ИИ
+cat > /opt/video_widget/backend/.env <<EOF
+OPENAI_API_KEY=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
+OPENAI_MODEL=gpt-4o-mini
+PORT=3000
+NODE_ENV=production
+DB_PATH=/opt/video_widget/backend/data/widget.db
+EOF
 
-## 🧪 Тестирование
+###############################################
+### 5. INSTALL BACKEND DEPENDENCIES
+###############################################
+npm install
+npm rebuild better-sqlite3 --build-from-source
 
-1. Откройте виджет: `http://localhost:8000/index.html`
-2. Нажмите кнопку **"Голос"**
-3. Разрешите доступ к микрофону
-4. Запишите вопрос (например: "Привет, расскажи о себе")
-5. Нажмите "Остановить"
-6. Дождитесь ответа ИИ
+mkdir -p /opt/video_widget/backend/data
 
-## ⚙️ Настройки
+###############################################
+### 6. INSTALL PM2 & START BACKEND
+###############################################
+npm install -g pm2
+pm2 stop all || true
+pm2 start server.js --name video-widget
+pm2 save
+pm2 startup systemd -u root --hp /root
 
-### Лимиты
-- Максимальный размер файла: 25MB (лимит OpenAI Whisper)
-- Формат: WebM (поддерживаются и другие аудио форматы)
-- Язык: Русский (автоматически определяется)
+###############################################
+### 7. CONFIGURE NGINX
+###############################################
+echo "➡ Setting up NGINX"
 
-### Обработка ошибок
-- Если распознавание не удалось - показывается сообщение
-- Если ИИ не ответил - показывается только распознанный текст
-- Все ошибки логируются на сервере
+cat > /etc/nginx/sites-available/video-widget <<EOF
+server {
+    listen 80;
+    server_name $1 www.$1;
 
-## 🔧 Требования
+    location /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+    }
 
-- ✅ OpenAI API ключ настроен
-- ✅ Backend сервер запущен
-- ✅ Зависимость `multer` установлена
-- ✅ Доступ к микрофону в браузере
+    location / {
+        return 301 https://$1\$request_uri;
+    }
+}
 
-## 📝 Примеры использования
+server {
+    listen 443 ssl;
+    server_name $1 www.$1;
 
-**Вопрос:** "Какие у вас услуги?"
-- Распознается: "Какие у вас услуги?"
-- ИИ отвечает на основе контекста сайта
+    root /opt/video_widget;
+    index index.html;
 
-**Вопрос:** "Сколько стоит?"
-- Распознается: "Сколько стоит?"
-- ИИ ищет информацию о ценах в базе знаний
+    ssl_certificate /etc/letsencrypt/live/$1/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$1/privkey.pem;
 
-## ✅ Готово!
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 
-Голосовое общение с ИИ полностью настроено и готово к использованию! 🎉
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
 
+ln -sf /etc/nginx/sites-available/video-widget /etc/nginx/sites-enabled/video-widget
+
+###############################################
+### 8. INSTALL SSL
+###############################################
+systemctl restart nginx
+
+mkdir -p /var/www/letsencrypt
+
+echo "➡ Generating SSL certificate for domain: $1"
+certbot certonly --nginx -d $1 -d www.$1 --non-interactive --agree-tos -m admin@$1 || true
+
+systemctl restart nginx
+
+###############################################
+### 9. FINAL STATUS
+###############################################
+echo "======================================"
+echo "🎉 INSTALLATION COMPLETE!"
+echo "Domain: https://$1"
+echo "Health check: https://$1/api/health"
+echo "PM2 status: pm2 status"
+echo "======================================"

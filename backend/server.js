@@ -9,6 +9,7 @@ import chatRoutes from './routes/chat.js';
 import legacyRoutes from './routes/legacy.js';
 import managerRoutes from './routes/manager.js';
 import { WebSocketServer } from './services/WebSocketServer.js';
+import telegramRoutes from './routes/telegram.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -36,6 +37,7 @@ app.get('/health', (req, res) => {
 app.use('/', chatRoutes);
 app.use('/', legacyRoutes);
 app.use('/', managerRoutes);
+app.use('/', telegramRoutes);
 
 // Initialize WebSocket server
 const wsServer = new WebSocketServer(httpServer);

@@ -69,11 +69,21 @@ const WidgetState = {
         try {
             // Пытаемся получить домен из window.location
             const hostname = window.location.hostname;
-            // Убираем www. если есть
-            return hostname.replace(/^www\./, '');
+            const normalized = (hostname || '').replace(/^www\./, '');
+            // Локальные/тестовые хосты мапим на демо-домен, чтобы был контекст
+            const isLocal =
+                normalized === 'localhost' ||
+                normalized === '127.0.0.1' ||
+                normalized === '0.0.0.0' ||
+                /^\d+\.\d+\.\d+\.\d+$/.test(normalized);
+            
+            if (isLocal) {
+                return window.WIDGET_SITE_DOMAIN || 'marketolo.ru';
+            }
+            return normalized || (window.WIDGET_SITE_DOMAIN || 'marketolo.ru');
         } catch (e) {
             console.warn('Could not detect site domain:', e);
-            return 'unknown';
+            return window.WIDGET_SITE_DOMAIN || 'marketolo.ru';
         }
     },
     
@@ -82,6 +92,9 @@ const WidgetState = {
         console.log('Site domain detected:', this.siteDomain);
     }
 };
+
+// Управление видео превью
+let VideoControl = null;
 
 // ===== Управление видимостью компонентов =====
 const ViewManager = {
@@ -107,11 +120,18 @@ const ViewManager = {
         // Показываем/скрываем кнопки в зависимости от состояния
         if (WidgetState.getState() === 'opened') {
             $('.video-widget__buttons').show();
-            $('.video-widget__preview').hide();
+            $('.video-widget__preview').show();
+            // Перезапускаем превью-видео, если было свернуто
+            const video = document.getElementById("video-widget__video");
+            if (video) {
+                video.muted = false;
+                video.play().catch(() => {});
+            }
         } else {
             $('.video-widget__buttons').hide();
             $('.video-widget__preview').show();
         }
+        if (VideoControl) VideoControl.play();
     },
     
     resetToDefault() {
@@ -122,6 +142,7 @@ const ViewManager = {
         this.hide('.video-widget__chat-container');
         $('.video-widget__buttons').hide();
         $('.video-widget__preview').show();
+        if (VideoControl) VideoControl.play();
     }
 };
 
@@ -216,12 +237,14 @@ const ChatManager = {
     
     showTypingIndicator() {
         const indicator = $('.typing-indicator');
-        indicator.show();
+        // Переносим индикатор под последнее сообщение, чтобы не двигать инпут
+        indicator.appendTo('#chat-messages').show();
         this.scrollToBottom();
     },
     
     hideTypingIndicator() {
-        $('.typing-indicator').hide();
+        const indicator = $('.typing-indicator');
+        indicator.hide().appendTo('.chat-input-area');
     },
     
     scrollToBottom() {
@@ -306,6 +329,21 @@ const ChatManager = {
             if (data.meta) {
                 console.log('Chat response meta:', data.meta);
             }
+
+            // Best-effort пересылка вопроса в Telegram (не блокирует UX)
+            // Пересылка в Telegram отключена, если нет конфигурации на бэкенде
+            if (window.WIDGET_TELEGRAM_ENABLED) {
+                const forwardPayload = {
+                    siteDomain: WidgetState.siteDomain,
+                    userId: WidgetState.userId,
+                    message: messageText.trim(),
+                };
+                fetch(`${this.apiBaseUrl}/telegram/forward`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(forwardPayload),
+                }).catch(err => console.warn('Telegram forward failed:', err?.message || err));
+            }
             
         } catch (error) {
             console.error('Error sending message:', error);
@@ -331,6 +369,8 @@ const VoiceRecorder = {
         try {
             ViewManager.hide('.video-widget__buttons');
             ViewManager.show('.video-widget__voice-recorder');
+            // Паузим превью-видео во время записи
+            if (VideoControl) VideoControl.pause();
             
             // Деактивируем кнопку отправки при старте
             $('.recorder-send-btn').prop('disabled', true);
@@ -369,7 +409,14 @@ const VoiceRecorder = {
             
         } catch (error) {
             console.error('Ошибка доступа к микрофону:', error);
-            this.showError('Не удалось получить доступ к микрофону. Пожалуйста, разрешите доступ в настройках браузера.');
+            
+            // Детализируем сообщение для кейса "устройство не найдено"
+            const isNotFound = error?.name === 'NotFoundError' || error?.name === 'NotFoundError ';
+            const message = isNotFound
+                ? 'Микрофон не найден. Подключите устройство или выберите доступный микрофон в настройках системы/браузера.'
+                : 'Не удалось получить доступ к микрофону. Пожалуйста, разрешите доступ в настройках браузера.';
+            
+            this.showError(message);
             ViewManager.resetToMainMenu();
         }
     },
@@ -577,6 +624,7 @@ const FAQManager = {
     show() {
         ViewManager.hide('.video-widget__buttons');
         ViewManager.show('.video-widget__faq-messages');
+        if (VideoControl) VideoControl.pause();
     },
     
     handleQuestionClick(question) {
@@ -929,6 +977,36 @@ const ManagerRequestService = {
 $(document).ready(function() {
     const widget = $(".video-widget");
     const video = document.getElementById("video-widget__video");
+    const muteBtn = document.querySelector('.video-widget__mute');
+    
+    // Инициализация контроллера видео
+    VideoControl = {
+        video,
+        muteBtn,
+        setMuted(muted) {
+            if (!this.video) return;
+            this.video.muted = muted;
+            if (this.muteBtn) {
+                this.muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+                this.muteBtn.setAttribute('data-muted', muted ? 'true' : 'false');
+            }
+        },
+        toggleMute() {
+            this.setMuted(!this.video?.muted);
+        },
+        pause() {
+            if (this.video && !this.video.paused) {
+                this.video.pause();
+            }
+        },
+        play() {
+            if (this.video) {
+                this.video.play().catch(() => {});
+            }
+        }
+    };
+    // Стартуем в беззвучном режиме (как было в разметке)
+    VideoControl.setMuted(true);
     
     // Обработчик закрытия виджета
     $(".video-widget__close").on('click', function(e) {
@@ -951,15 +1029,23 @@ $(document).ready(function() {
             if (WidgetState.getState() === "default") {
                 WidgetState.setState("opened");
                 video.currentTime = 0;
-                video.muted = false;
+                if (VideoControl) VideoControl.setMuted(false);
                 // Показываем видео-превью и главное меню одновременно
                 $('.video-widget__preview').show();
                 $('.video-widget__buttons').fadeIn(200);
                 // Стартуем проигрывание на всякий случай (некоторые браузеры паузят при скрытии)
-                video.play().catch(() => {});
+                if (VideoControl) VideoControl.play();
             }
         }
     });
+    
+    // Переключатель звука
+    if (muteBtn) {
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            VideoControl.toggleMute();
+        });
+    }
     
     // Кнопки главного меню
     $('.video-widget__voice-btn').on('click', function(e) {
@@ -976,12 +1062,14 @@ $(document).ready(function() {
         e.stopPropagation();
         // Показываем модальное окно выбора типа связи
         $('.manager-connection-modal').fadeIn(300);
+        if (VideoControl) VideoControl.pause();
     });
     
     // Закрытие модального окна
     $('.modal-close-btn, .modal-overlay').on('click', function(e) {
         if ($(e.target).hasClass('modal-overlay') || $(e.target).hasClass('modal-close-btn')) {
             $('.manager-connection-modal').fadeOut(300);
+            if (VideoControl) VideoControl.play();
         }
     });
     
@@ -1153,9 +1241,17 @@ $(document).ready(function() {
         const value = $(this).val().trim();
         $('.chat-send-btn').prop('disabled', value.length === 0);
         
-        // Автоматическое изменение высоты
+        // Автоматическое изменение высоты до 4 строк, далее скролл
+        const styles = window.getComputedStyle(this);
+        const lineHeight = parseFloat(styles.lineHeight) || 20;
+        const paddingTop = parseFloat(styles.paddingTop) || 0;
+        const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+        const maxHeight = lineHeight * 4 + paddingTop + paddingBottom;
+
         this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        const newHeight = Math.min(this.scrollHeight, maxHeight);
+        this.style.height = newHeight + 'px';
+        this.style.overflowY = this.scrollHeight > maxHeight ? 'auto' : 'hidden';
     });
     
     $('.chat-input').on('keydown', function(e) {
@@ -1174,7 +1270,7 @@ $(document).ready(function() {
             return;
         }
         
-        $('.chat-input').val('').css('height', 'auto');
+        $('.chat-input').val('').css({ height: 'auto', overflowY: 'hidden' });
         $('.chat-send-btn').prop('disabled', true);
         ChatManager.sendMessage(message);
     });

@@ -4,13 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Widget - Интерактивный помощник</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="styles.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <script>
-        // Настройка URL API для локальной разработки
-        window.WIDGET_API_URL = 'http://localhost:3000';
-        window.WIDGET_WS_URL = 'http://localhost:3000';
+        // Настройка URL API: используем текущий origin, чтобы избежать CORS
+        (function() {
+            const origin = window.location.origin;
+            window.WIDGET_API_URL = origin;
+            window.WIDGET_WS_URL = origin;
+            window.WIDGET_SITE_DOMAIN = 'marketolo.ru'; // домен для демо-ответов
+        })();
     </script>
 </head>
 <body>
@@ -19,17 +24,26 @@
             <!-- Видео превью -->
             <div class="video-widget__preview">
         <video id="video-widget__video" loop autoplay playsinline preload="auto" muted controlslist="nodownload" disablepictureinpicture class="video-widget__video">
-            <source src="/demo.mp4" type="video/mp4">
+            <source src="/avatar.mp4" type="video/mp4">
         </video>
                 <div class="video-widget__overlay">
-                    <div class="video-widget__sphere-container">
-                        <img src="sphere.svg" alt="Sphere" class="video-widget__sphere">
-                    </div>
         </div>
             </div>
             
             <!-- Кнопка закрытия -->
             <button class="video-widget__close" aria-label="Закрыть виджет"></button>
+            <!-- Переключатель звука -->
+            <button class="video-widget__mute" aria-label="Включить/выключить звук" aria-pressed="true">
+                <svg class="video-widget__mute-icon" viewBox="0 0 100 100" aria-hidden="true">
+                    <g class="video-widget__mute-bars" fill="currentColor">
+                        <rect x="8"  y="40" width="6"  height="20" rx="3" />
+                        <rect x="24" y="30" width="8"  height="40" rx="4" />
+                        <rect x="42" y="16" width="10" height="68" rx="5" />
+                        <rect x="60" y="30" width="8"  height="40" rx="4" />
+                        <rect x="78" y="40" width="6"  height="20" rx="3" />
+                    </g>
+                </svg>
+            </button>
             
             <!-- Главное меню с кнопками -->
             <div class="video-widget__buttons">
@@ -101,6 +115,30 @@
                                 <div class="option-desc">Видеозвонок</div>
                             </div>
                         </button>
+                        <a class="connection-option" href="https://t.me/Papa_Marketinga" target="_blank" rel="noopener noreferrer">
+                            <div class="option-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 2L11 13"/>
+                                    <path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+                                </svg>
+                            </div>
+                            <div class="option-info">
+                                <div class="option-title">Telegram</div>
+                                <div class="option-desc">@Papa_Marketinga</div>
+                            </div>
+                        </a>
+                        <a class="connection-option" href="https://wa.me/79645848080" target="_blank" rel="noopener noreferrer">
+                            <div class="option-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-1.2 4.4 8.5 8.5 0 0 1-7.3 4.1 8.38 8.38 0 0 1-4.4-1.2L3 21l2.2-5.1a8.38 8.38 0 0 1-1.2-4.4 8.5 8.5 0 0 1 4.1-7.3 8.38 8.38 0 0 1 4.4-1.2h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                                    <path d="M8.5 9.5c.2 1.1.7 2 1.5 2.8.8.8 1.8 1.3 2.8 1.5l1.1-1.1c.2-.2.5-.2.7 0l1.2 1.2"/>
+                                </svg>
+                            </div>
+                            <div class="option-info">
+                                <div class="option-title">WhatsApp</div>
+                                <div class="option-desc">+7 964 584 8080</div>
+                            </div>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -112,19 +150,19 @@
                     <div class="faq-title">Популярные вопросы</div>
         </div>
                 <div class="faq-list">
-                    <div class="faq-message" data-question="Как Big Data помогает увеличить продажи?">
-                        <span class="faq-icon">💡</span>
-                        <span class="faq-text">Как Big Data помогает увеличить продажи?</span>
-        </div>
-                    <div class="faq-message" data-question="Какие данные вы собираете?">
-                        <span class="faq-icon">🔒</span>
-                        <span class="faq-text">Какие данные вы собираете?</span>
-        </div>
-                    <div class="faq-message" data-question="Сколько стоит внедрение?">
-                        <span class="faq-icon">💰</span>
-                        <span class="faq-text">Сколько стоит внедрение?</span>
-        </div>
-    </div>
+                    <div class="faq-message" data-question="Хотите, чтобы к вам приходили только платёжеспособные клиенты?">
+                        <span class="faq-icon">🚀</span>
+                        <span class="faq-text">Хотите, чтобы к вам приходили только платёжеспособные клиенты?</span>
+                    </div>
+                    <div class="faq-message" data-question="Показать, какие касания работают лучше всего в премиальном сегменте?">
+                        <span class="faq-icon">🎯</span>
+                        <span class="faq-text">Показать, какие касания работают лучше всего в премиальном сегменте?</span>
+                    </div>
+                    <div class="faq-message" data-question="Пройтись по тарифам и подобрать оптимальный вариант под ваш продукт?">
+                        <span class="faq-icon">💼</span>
+                        <span class="faq-text">Пройтись по тарифам и подобрать оптимальный вариант под ваш продукт?</span>
+                    </div>
+                </div>
 </div>
 
             <!-- Голосовой рекордер -->
@@ -184,14 +222,29 @@
                 <div class="chat-drag-handle" title="Потяните вниз, чтобы свернуть"></div>
                 <div class="chat-header">
                     <div class="chat-avatar">
+                        <img src="orig.webp" alt="Ассистент" class="avatar-img">
                         <div class="avatar-pulse"></div>
                     </div>
                     <div class="chat-info">
-                        <div class="chat-title">Ассистент по данным</div>
+                        <div class="chat-title">Ассистент</div>
                         <div class="chat-status">
                             <span class="status-dot"></span>
                             <span class="status-text">Онлайн</span>
                         </div>
+                    </div>
+                    <div class="chat-quick-links">
+                        <a class="chat-link" href="https://t.me/Papa_Marketinga" target="_blank" rel="noopener noreferrer" aria-label="Написать в Telegram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 2L11 13"/>
+                                <path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+                            </svg>
+                        </a>
+                        <a class="chat-link" href="https://wa.me/79645848080" target="_blank" rel="noopener noreferrer" aria-label="Написать в WhatsApp">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-1.2 4.4 8.5 8.5 0 0 1-7.3 4.1 8.38 8.38 0 0 1-4.4-1.2L3 21l2.2-5.1a8.38 8.38 0 0 1-1.2-4.4 8.5 8.5 0 0 1 4.1-7.3 8.38 8.38 0 0 1 4.4-1.2h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                                <path d="M8.5 9.5c.2 1.1.7 2 1.5 2.8.8.8 1.8 1.3 2.8 1.5l1.1-1.1c.2-.2.5-.2.7 0l1.2 1.2"/>
+                            </svg>
+                        </a>
                     </div>
                 </div>
                 <div class="chat-messages" id="chat-messages">
