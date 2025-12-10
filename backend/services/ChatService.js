@@ -60,7 +60,11 @@ export class ChatService {
     isMarketoloDemoDomain(siteDomain) {
         if (!siteDomain) return false;
         const normalized = siteDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-        return normalized === 'marketolo.ru' || normalized.endsWith('.marketolo.ru');
+        // Добавляем ai-studia.ru как демо-домен, так как там размещен виджет
+        return normalized === 'marketolo.ru' 
+            || normalized === 'ai-studia.ru'
+            || normalized.endsWith('.marketolo.ru')
+            || normalized.endsWith('.ai-studia.ru');
     }
 
     /**
