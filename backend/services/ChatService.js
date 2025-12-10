@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { SiteKnowledgeBase } from './SiteKnowledgeBase.js';
 import { SiteCrawler } from './SiteCrawler.js';
 import { db } from '../database/db.js';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 /**
  * Сервис для работы с чатом и OpenAI API
@@ -13,15 +14,26 @@ export class ChatService {
             throw new Error('OpenAI API key is not configured');
         }
 
-        // Прокси для OpenAI (если задан)
+        // Настройка прокси для OpenAI
+        const openaiConfig = {
+            apiKey: config.openai.apiKey,
+        };
+
+        // Если прокси настроен, используем его
         if (config.proxy?.openai) {
-            process.env.HTTPS_PROXY = config.proxy.openai;
-            process.env.HTTP_PROXY = config.proxy.openai;
+            try {
+                const proxyUrl = config.proxy.openai;
+                const agent = new HttpsProxyAgent(proxyUrl);
+                openaiConfig.httpAgent = agent;
+                openaiConfig.httpsAgent = agent;
+                console.log('✅ OpenAI proxy configured:', proxyUrl.replace(/:[^:@]+@/, ':****@'));
+            } catch (error) {
+                console.error('❌ Error setting up OpenAI proxy:', error.message);
+                // Продолжаем без прокси, если не удалось настроить
+            }
         }
 
-        this.openai = new OpenAI({
-            apiKey: config.openai.apiKey,
-        });
+        this.openai = new OpenAI(openaiConfig);
     }
 
     /**

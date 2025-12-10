@@ -49,6 +49,7 @@ export const config = {
 
     // Proxy (например, для OpenAI)
     proxy: {
+        // Формат: http://user:password@host:port
         openai: process.env.OPENAI_PROXY || '',
     },
 
