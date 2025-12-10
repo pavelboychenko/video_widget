@@ -253,6 +253,8 @@ ${context || 'Информация о компании пока индексир
      */
     async getChatResponse(siteDomain, userMessage, history = []) {
         const isMarketoloDemo = this.isMarketoloDemoDomain(siteDomain);
+        
+        console.log(`📝 Chat request - Domain: ${siteDomain}, IsMarketoloDemo: ${isMarketoloDemo}`);
 
         let context = null;
         let systemPrompt = null;
@@ -261,6 +263,7 @@ ${context || 'Информация о компании пока индексир
             // Для демо не инициируем краулер, используем фиксированный контент
             context = this.getMarketoloContext();
             systemPrompt = this.buildMarketoloSystemPrompt(context);
+            console.log('✅ Using Marketolo demo context');
         } else {
             // Проверяем/инициируем индексацию
             await this.ensureSiteIndexed(siteDomain);
